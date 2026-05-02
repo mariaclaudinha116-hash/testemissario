@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Finalizar Compra — Missário</title>
+<link rel="stylesheet" href="loja.css">
+<style>
+  body { background: #faf9f7; }
+  .checkout-container { max-width: 1200px; margin: 48px auto; padding: 0 5%; display: grid; grid-template-columns: 1fr 400px; gap: 48px; align-items: start; }
+  .checkout-main { background: #fff; padding: 32px; border-radius: 12px; border: 1px solid var(--border); }
+  .checkout-side { background: #fff; padding: 32px; border-radius: 12px; border: 1px solid var(--border); position: sticky; top: 100px; }
+  .ch-title { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 700; margin-bottom: 24px; color: var(--text); }
+  .ch-group { margin-bottom: 20px; }
+  .ch-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+  .ch-group input, .ch-group select { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95rem; font-family: inherit; box-sizing: border-box; transition: border-color 0.2s; }
+  .ch-group input:focus, .ch-group select:focus { outline: none; border-color: var(--brown); }
+  .ch-group input.loading { background: #f5f5f5; color: #aaa; }
+  .ch-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .ch-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .ch-btn { width: 100%; padding: 16px; background: #000; color: #fff; border: none; border-radius: 8px; font-weight: 700; font-size: 1.05rem; cursor: pointer; margin-top: 24px; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .ch-btn:hover { background: #333; }
+  .ch-btn:disabled { background: #999; cursor: not-allowed; }
+  .cep-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+
+  .summary-item { display: flex; gap: 12px; margin-bottom: 16px; align-items: center; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .summary-item:last-of-type { border-bottom: none; }
+  .summary-item img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); flex-shrink: 0; }
+  .summary-item-info { flex: 1; min-width: 0; }
+  .summary-item-name { font-weight: 600; font-size: 0.85rem; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .summary-item-qty { font-size: 0.78rem; color: var(--text-muted); }
+  .summary-item-price { font-weight: 700; color: var(--brown); font-size: 0.95rem; flex-shrink: 0; }
+
+  .summary-row { display: flex; justify-content: space-between; font-size: 0.9rem; margin-bottom: 10px; color: var(--text-muted); }
+  .summary-row.total { font-size: 1.15rem; font-weight: 700; color: var(--text); border-top: 2px solid var(--border); padding-top: 16px; margin-top: 8px; margin-bottom: 0; }
+  .summary-row.total span:last-child { color: var(--brown); }
+  .coupon-box { margin: 20px 0; padding: 10px 14px; border: 1px dashed var(--brown); background: rgba(123, 63, 0, 0.05); border-radius: 6px; display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; font-weight: 600; color: var(--brown); }
+
+  .payment-method { margin-top: 0; border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: flex; align-items: center; gap: 12px; background: #f9f7f5; cursor: pointer; transition: 0.2s; }
+  .payment-method:hover { border-color: var(--brown); }
+  .payment-method.active { background: #f0ece4; border-color: var(--brown); }
+  .payment-method input[type=radio] { width: 18px; height: 18px; accent-color: var(--brown); flex-shrink: 0; }
+  .payment-method label { font-weight: 700; display: flex; align-items: center; gap: 8px; cursor: pointer; width: 100%; }
+
+  .email-autocomplete-wrapper { position: relative; }
+  .email-suggestions { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 10; display: none; max-height: 150px; overflow-y: auto; }
+  .email-suggestions.active { display: block; }
+  .email-suggestion-item { padding: 10px 12px; cursor: pointer; font-size: 0.9rem; color: var(--text); border-bottom: 1px solid #f0ece4; }
+  .email-suggestion-item:last-child { border-bottom: none; }
+  .email-suggestion-item:hover, .email-suggestion-item.selected { background: #f9f7f5; color: var(--brown); font-weight: 600; }
+
+  /* Validacao */
+  .ch-group input.valid, .ch-group select.valid { border-color: #27ae60; background: #f0fff4; }
+  .ch-group .field-check { display: none; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #27ae60; font-size: 1rem; pointer-events: none; }
+  .ch-group { position: relative; }
+  .ch-group input.valid ~ .field-check { display: block; }
+  .ch-group .input-wrap { position: relative; display: flex; align-items: center; }
+  .ch-group .input-wrap input { padding-right: 36px; }
+  .ch-group input.invalid { border-color: #e74c3c; background: #fff5f5; }
+
+  /* Card form */
+  #card-fields { overflow: hidden; max-height: 0; opacity: 0; transition: max-height 0.4s ease, opacity 0.3s ease, margin 0.3s ease; margin-top: 0; }
+  #card-fields.show { max-height: 600px; opacity: 1; margin-top: 20px; }
+  .card-form-inner { padding: 20px; background: #f9f7f5; border-radius: 8px; border: 1px solid var(--border); }
+  .card-brands { display: flex; gap: 8px; margin-bottom: 16px; }
+  .card-brands span { font-size: 1.8rem; opacity: 0.3; transition: 0.2s; }
+  .card-brands span.active { opacity: 1; }
+
+  /* Loading overlay */
+  .loading-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 9999; display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+  .loading-overlay.show { display: flex; }
+  .loading-box { background: #fff; padding: 48px; border-radius: 16px; text-align: center; max-width: 400px; width: 90%; }
+  .loading-spinner { width: 48px; height: 48px; border: 4px solid var(--border); border-top-color: var(--brown); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 20px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* PIX result */
+  .pix-result { text-align: center; }
+  .pix-result h2 { font-family: 'Playfair Display', serif; margin-bottom: 8px; }
+  .pix-result .pix-subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; }
+  .pix-qr-container { background: #fff; padding: 24px; border-radius: 12px; display: inline-block; margin-bottom: 20px; border: 2px solid var(--border); }
+  .pix-qr-container img { width: 220px; height: 220px; }
+  .pix-code-box { background: #f0ece4; border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin: 16px 0; word-break: break-all; font-size: 0.75rem; color: var(--text-muted); max-height: 80px; overflow-y: auto; text-align: left; }
+  .pix-copy-btn { background: var(--brown); color: #fff; border: none; padding: 14px 32px; border-radius: 8px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: 0.2s; width: 100%; }
+  .pix-copy-btn:hover { background: var(--brown-dark); }
+  .pix-copy-btn.copied { background: #27ae60; }
+  .pix-timer { margin-top: 16px; font-size: 0.85rem; color: var(--text-muted); }
+  .pix-timer strong { color: var(--brown); font-size: 1.1rem; }
+
+  /* Card success */
+  .card-success { text-align: center; }
+  .card-success .success-icon { width: 72px; height: 72px; background: #27ae60; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
+  .card-success .success-icon svg { width: 36px; height: 36px; color: #fff; }
+  .card-success h2 { font-family: 'Playfair Display', serif; color: #27ae60; margin-bottom: 8px; }
+  .card-success p { color: var(--text-muted); font-size: 0.9rem; }
+  .card-success .order-ref { background: #f0ece4; padding: 12px; border-radius: 8px; margin: 20px 0; font-weight: 700; color: var(--brown); }
+
+  /* Error */
+  .checkout-error { background: #fff5f5; border: 1px solid #e74c3c; border-radius: 8px; padding: 14px; margin-top: 16px; display: none; }
+  .checkout-error p { color: #c0392b; font-size: 0.85rem; font-weight: 600; margin: 0; }
+
+  .back-btn { display: inline-block; margin-top: 20px; padding: 12px 24px; border: 2px solid var(--brown); color: var(--brown); border-radius: 8px; font-weight: 600; text-decoration: none; transition: 0.2s; cursor: pointer; background: none; font-size: 0.95rem; }
+  .back-btn:hover { background: var(--brown); color: #fff; }
+
+  @media(max-width: 900px) {
+    .checkout-container { grid-template-columns: 1fr; }
+    .checkout-side { position: static; }
+    .ch-row-3 { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+<!-- TikTok Pixel Code Base -->
+<script>
+!function (w, d, t) {
+  w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(
+var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script" )
+;n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};
+  ttq.load('D7QINP3C77U0A0BNA0N0');
+  ttq.page();
+}(window, document, 'ttq');
+</script>
+
+<!-- Utmify TikTok Pixel Integration -->
+<script>
+  window.tikTokPixelId = "D7QINP3C77U0A0BNA0N0"; // Usei o seu ID real do Pixel aqui
+  var a = document.createElement("script");
+  a.setAttribute("async", "");
+  a.setAttribute("defer", "");
+  a.setAttribute("src", "https://cdn.utmify.com.br/scripts/pixel/pixel-tiktok.js" );
+  document.head.appendChild(a);
+</script>
+<!-- Microsoft Clarity -->
+<script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "wkqkwikz17");
+</script>
+</head>
+<body>
+
+<nav class="navbar" style="justify-content:center;">
+  <div class="nav-inner" style="justify-content:center;">
+    <a href="loja.html" class="nav-logo">
+      <span class="nav-logo-text">&#10010; MISSARIO</span>
+    </a>
+  </div>
+</nav>
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loading-overlay">
+  <div class="loading-box">
+    <div class="loading-spinner"></div>
+    <p style="font-weight:700; font-size:1.1rem; margin-bottom:6px;">Processando pagamento...</p>
+    <p style="color:var(--text-muted); font-size:0.85rem;">Aguarde, estamos finalizando seu pedido.</p>
+  </div>
+</div>
+
+<div class="checkout-container" id="checkout-form-container">
+
+  <div class="checkout-main">
+    <h2 class="ch-title">Informacoes do cliente</h2>
+
+    <div class="ch-group email-autocomplete-wrapper">
+      <label for="email">Email *</label>
+      <div class="input-wrap">
+        <input type="email" id="email" placeholder="seu@email.com" autocomplete="off">
+        <span class="field-check">&#10003;</span>
+      </div>
+      <div class="email-suggestions" id="email-suggestions"></div>
+    </div>
+    <div class="ch-row">
+      <div class="ch-group">
+        <label for="nome">Nome *</label>
+        <div class="input-wrap">
+          <input type="text" id="nome">
+          <span class="field-check">&#10003;</span>
+        </div>
+      </div>
+      <div class="ch-group">
+        <label for="sobrenome">Sobrenome *</label>
+        <div class="input-wrap">
+          <input type="text" id="sobrenome">
+          <span class="field-check">&#10003;</span>
+        </div>
+      </div>
+    </div>
+    <div class="ch-row">
+      <div class="ch-group">
+        <label for="telefone">Telefone *</label>
+        <div class="input-wrap">
+          <input type="tel" id="telefone" placeholder="(11) 90000-0000" maxlength="15" inputmode="numeric">
+          <span class="field-check">&#10003;</span>
+        </div>
+      </div>
+      <div class="ch-group">
+        <label for="cpf">CPF *</label>
+        <div class="input-wrap">
+          <input type="text" id="cpf" placeholder="000.000.000-00" maxlength="14" inputmode="numeric">
+          <span class="field-check">&#10003;</span>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="ch-title" style="margin-top:40px;">Detalhes da entrega</h2>
+
+    <div class="ch-group">
+      <label for="cep">Codigo postal (CEP) *</label>
+      <div class="input-wrap">
+        <input type="text" id="cep" placeholder="00000-000" maxlength="9">
+        <span class="field-check">&#10003;</span>
+      </div>
+      <div class="cep-hint" id="cep-hint">Digite seu CEP para preencher o endereco automaticamente.</div>
+    </div>
+
+    <div class="ch-row">
+      <div class="ch-group" style="grid-column: 1/-1;">
+        <label for="rua">Endereco *</label>
+        <div class="input-wrap">
+          <input type="text" id="rua">
+          <span class="field-check">&#10003;</span>
+        </div>
+      </div>
+    </div>
+    <div class="ch-row">
+      <div class="ch-group">
+        <label for="numero">Numero *</label>
+        <div class="input-wrap">
+          <input type="text" id="numero">
+          <span class="field-check">&#10003;</span>
+        </div>
+      </div>
+      <div class="ch-group">
+        <label for="complemento">Complemento</label>
+        <input type="text" id="complemento" placeholder="Apto, bloco...">
+      </div>
+    </div>
+    <div class="ch-row-3">
+      <div class="ch-group">
+        <label for="bairro">Bairro *</label>
+        <div class="input-wrap">
+          <input type="text" id="bairro">
+          <span class="field-check">&#10003;</span>
+        </div>
+      </div>
+      <div class="ch-group">
+        <label for="cidade">Cidade *</label>
+        <div class="input-wrap">
+          <input type="text" id="cidade">
+          <span class="field-check">&#10003;</span>
+        </div>
+      </div>
+      <div class="ch-group">
+        <label for="estado">Estado *</label>
+        <div class="input-wrap">
+          <input type="text" id="estado" maxlength="2" placeholder="UF">
+          <span class="field-check">&#10003;</span>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="ch-title" style="margin-top:40px;">Pagamento</h2>
+
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="payment-method active" id="pm-pix" onclick="selectPayment('pix')">
+        <input type="radio" id="pix" name="payment" value="pix" checked>
+        <label for="pix">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l9 4-9 4-9-4 9-4z"/><path d="M3 10v4l9 4 9-4v-4"/></svg>
+          Pix &mdash; Aprovacao Imediata
+        </label>
+      </div>
+
+      <div class="payment-method" id="pm-card" onclick="selectPayment('credit_card')">
+        <input type="radio" id="credit_card" name="payment" value="credit_card">
+        <label for="credit_card">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          Cartao de Credito (ate 12x)
+        </label>
+      </div>
+    </div>
+
+    <!-- Card form (hidden by default) -->
+    <div id="card-fields">
+      <div class="card-form-inner">
+        <div class="card-brands">
+          <span id="brand-visa" title="Visa">&#128179;</span>
+          <span id="brand-master" title="Mastercard">&#128179;</span>
+          <span id="brand-elo" title="Elo">&#128179;</span>
+          <span id="brand-amex" title="Amex">&#128179;</span>
+        </div>
+        <div class="ch-group">
+          <label for="card-number">Numero do Cartao *</label>
+          <div class="input-wrap">
+            <input type="text" id="card-number" placeholder="0000 0000 0000 0000" maxlength="19" inputmode="numeric" autocomplete="cc-number">
+            <span class="field-check">&#10003;</span>
+          </div>
+        </div>
+        <div class="ch-group">
+          <label for="card-name">Nome no Cartao *</label>
+          <div class="input-wrap">
+            <input type="text" id="card-name" placeholder="NOME COMO NO CARTAO" autocomplete="cc-name" style="text-transform:uppercase;">
+            <span class="field-check">&#10003;</span>
+          </div>
+        </div>
+        <div class="ch-row">
+          <div class="ch-group">
+            <label for="card-expiry">Validade *</label>
+            <div class="input-wrap">
+              <input type="text" id="card-expiry" placeholder="MM/AA" maxlength="5" inputmode="numeric" autocomplete="cc-exp">
+              <span class="field-check">&#10003;</span>
+            </div>
+          </div>
+          <div class="ch-group">
+            <label for="card-cvv">CVV *</label>
+            <div class="input-wrap">
+              <input type="text" id="card-cvv" placeholder="123" maxlength="4" inputmode="numeric" autocomplete="cc-csc">
+              <span class="field-check">&#10003;</span>
+            </div>
+          </div>
+        </div>
+        <div class="ch-group">
+          <label for="installments">Parcelas</label>
+          <select id="installments">
+            <option value="1">1x sem juros</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="checkout-error" id="checkout-error">
+      <p id="error-text"></p>
+    </div>
+
+    <button class="ch-btn" id="btn-finalizar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Finalizar Compra
+    </button>
+  </div>
+
+  <div class="checkout-side">
+    <h2 class="ch-title" style="font-size:1.1rem; margin-bottom:16px;">Resumo do pedido</h2>
+    <div id="checkout-items"></div>
+
+    <div class="coupon-box">
+      <span>Cupom: <strong>MISSARIO50%</strong></span>
+      <span>&#10003; Aplicado</span>
+    </div>
+
+    <div class="summary-row">
+      <span>Subtotal</span>
+      <span id="ch-subtotal">R$ 0,00</span>
+    </div>
+    <div class="summary-row">
+      <span>Entrega</span>
+      <span style="color:#27ae60; font-weight:600;">Gratis</span>
+    </div>
+    <div class="summary-row total">
+      <span>Total</span>
+      <span id="ch-total">R$ 0,00</span>
+    </div>
+    <p style="font-size:0.72rem; color:var(--text-muted); margin-top:14px; text-align:center;">&#128274; Checkout 100% seguro e criptografado</p>
+    <p style="font-size:0.72rem; color:var(--text-muted); text-align:center; margin-top:6px;">&#129293; Todo lucro e destinado a caridade</p>
+  </div>
+</div>
+
+<!-- PIX Result (hidden) -->
+<div class="checkout-container" id="pix-result-container" style="display:none;">
+  <div class="checkout-main pix-result">
+    <h2>Pagamento via PIX</h2>
+    <p class="pix-subtitle">Escaneie o QR Code ou copie o codigo para pagar</p>
+
+    <div class="pix-qr-container">
+      <img id="pix-qr-img" src="" alt="QR Code PIX">
+    </div>
+
+    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:8px;">Codigo PIX copia e cola:</p>
+    <div class="pix-code-box" id="pix-code-box"></div>
+
+    <button class="pix-copy-btn" id="pix-copy-btn" onclick="copyPixCode()">
+      Copiar codigo PIX
+    </button>
+
+    <div class="pix-timer">
+      <p>Expira em: <strong id="pix-timer-text">30:00</strong></p>
+    </div>
+
+    <p style="font-size:0.78rem; color:var(--text-muted); margin-top:20px;">Apos o pagamento, voce recebera a confirmacao por email.</p>
+    <a href="loja.html" class="back-btn">Voltar para a loja</a>
+  </div>
+
+  <div class="checkout-side">
+    <h2 class="ch-title" style="font-size:1.1rem; margin-bottom:16px;">Pedido confirmado</h2>
+    <div id="pix-order-items"></div>
+    <div class="summary-row total">
+      <span>Total</span>
+      <span id="pix-order-total">R$ 0,00</span>
+    </div>
+    <p style="font-size:0.72rem; color:var(--text-muted); margin-top:14px; text-align:center;">&#128274; Pagamento processado pela AppMax</p>
+  </div>
+</div>
+
+<!-- Card Success (hidden) -->
+<div class="checkout-container" id="card-success-container" style="display:none;">
+  <div class="checkout-main card-success">
+    <div class="success-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>
+    <h2>Pagamento Aprovado!</h2>
+    <p>Seu pedido foi confirmado com sucesso.</p>
+    <div class="order-ref">
+      Pedido #<span id="card-order-id"></span>
+    </div>
+    <p style="font-size:0.85rem; color:var(--text-muted);">Voce recebera um email com os detalhes do pedido e rastreamento da entrega.</p>
+    <a href="loja.html" class="back-btn">Voltar para a loja</a>
+  </div>
+
+  <div class="checkout-side">
+    <h2 class="ch-title" style="font-size:1.1rem; margin-bottom:16px;">Pedido confirmado</h2>
+    <div id="card-order-items"></div>
+    <div class="summary-row total">
+      <span>Total</span>
+      <span id="card-order-total">R$ 0,00</span>
+    </div>
+    <p style="font-size:0.72rem; color:var(--text-muted); margin-top:14px; text-align:center; color: #27ae60; font-weight: 600;">&#10003; Pagamento aprovado</p>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════
+   CART
+   ══════════════════════════════════════ */
+let cartItems = [];
+try {
+  const saved = localStorage.getItem('cart_items');
+  if (saved) cartItems = JSON.parse(saved);
+} catch(_){}
+
+let totalCents = 0;
+
+function priceToCents(str) {
+  return Math.round(parseFloat(str.replace('R$','').trim().replace('.','').replace(',','.')) * 100);
+}
+
+function fmtPrice(cents) {
+  return 'R$ ' + (cents / 100).toFixed(2).replace('.', ',');
+}
+
+function renderCartItems(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (cartItems.length === 0) {
+    el.innerHTML = '<p style="text-align:center;color:#888;font-size:0.9rem;">Carrinho vazio. <a href="loja.html">Ver produtos</a></p>';
+    return;
+  }
+  el.innerHTML = '';
+  totalCents = 0;
+  cartItems.forEach(item => {
+    const qty = item.qty || 1;
+    const unitCents = priceToCents(item.price);
+    const lineCents = unitCents * qty;
+    totalCents += lineCents;
+    el.innerHTML += '<div class="summary-item">' +
+      '<img src="' + (item.img||'') + '" alt="" onerror="this.style.display=\'none\'">' +
+      '<div class="summary-item-info">' +
+        '<div class="summary-item-name">' + item.name + '</div>' +
+        '<div class="summary-item-qty">Qtd: ' + qty + ' x ' + item.price + '</div>' +
+      '</div>' +
+      '<div class="summary-item-price">' + fmtPrice(lineCents) + '</div>' +
+    '</div>';
+  });
+}
+
+// Render main checkout items
+renderCartItems('checkout-items');
+const subtotalEl = document.getElementById('ch-subtotal');
+const totalEl = document.getElementById('ch-total');
+if (subtotalEl) subtotalEl.textContent = fmtPrice(totalCents);
+if (totalEl) totalEl.textContent = fmtPrice(totalCents);
+localStorage.setItem('order_total_cents', totalCents);
+
+// Update installments based on total
+function updateInstallments() {
+  const sel = document.getElementById('installments');
+  if (!sel || totalCents === 0) return;
+  sel.innerHTML = '';
+  const maxInst = 12;
+  for (let i = 1; i <= maxInst; i++) {
+    const val = (totalCents / 100 / i).toFixed(2).replace('.', ',');
+    const label = i === 1 ? '1x de R$ ' + val + ' (sem juros)' : i + 'x de R$ ' + val;
+    sel.innerHTML += '<option value="' + i + '">' + label + '</option>';
+  }
+}
+updateInstallments();
+
+
+/* ══════════════════════════════════════
+   PAYMENT METHOD TOGGLE
+   ══════════════════════════════════════ */
+function selectPayment(method) {
+  document.getElementById('pix').checked = (method === 'pix');
+  document.getElementById('credit_card').checked = (method === 'credit_card');
+
+  document.getElementById('pm-pix').classList.toggle('active', method === 'pix');
+  document.getElementById('pm-card').classList.toggle('active', method === 'credit_card');
+
+  const cardFields = document.getElementById('card-fields');
+  if (method === 'credit_card') {
+    cardFields.classList.add('show');
+  } else {
+    cardFields.classList.remove('show');
+  }
+}
+
+
+/* ══════════════════════════════════════
+   MASKS
+   ══════════════════════════════════════ */
+
+// Phone mask
+const telInput = document.getElementById('telefone');
+telInput.addEventListener('input', function() {
+  let v = this.value.replace(/\D/g, '').slice(0, 11);
+  if (v.length === 0) { this.value = ''; return; }
+  if (v.length <= 2) this.value = '(' + v;
+  else if (v.length <= 7) this.value = '(' + v.slice(0,2) + ') ' + v.slice(2);
+  else this.value = '(' + v.slice(0,2) + ') ' + v.slice(2,7) + '-' + v.slice(7);
+});
+
+// CPF mask
+const cpfInput = document.getElementById('cpf');
+cpfInput.addEventListener('input', function() {
+  let v = this.value.replace(/\D/g, '').slice(0, 11);
+  if (v.length <= 3) this.value = v;
+  else if (v.length <= 6) this.value = v.slice(0,3) + '.' + v.slice(3);
+  else if (v.length <= 9) this.value = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6);
+  else this.value = v.slice(0,3) + '.' + v.slice(3,6) + '.' + v.slice(6,9) + '-' + v.slice(9);
+});
+
+// CEP mask
+const cepInput = document.getElementById('cep');
+cepInput.addEventListener('input', function() {
+  let v = this.value.replace(/\D/g, '').slice(0, 8);
+  if (v.length > 5) v = v.slice(0, 5) + '-' + v.slice(5);
+  this.value = v;
+  if (this.value.replace(/\D/g,'').length === 8) fetchCep(this.value.replace(/\D/g,''));
+});
+
+// Card number mask
+const cardNumInput = document.getElementById('card-number');
+cardNumInput.addEventListener('input', function() {
+  let v = this.value.replace(/\D/g, '').slice(0, 16);
+  let formatted = v.replace(/(\d{4})(?=\d)/g, '$1 ');
+  this.value = formatted;
+  detectBrand(v);
+});
+
+// Card expiry mask
+const cardExpInput = document.getElementById('card-expiry');
+cardExpInput.addEventListener('input', function() {
+  let v = this.value.replace(/\D/g, '').slice(0, 4);
+  if (v.length >= 3) v = v.slice(0,2) + '/' + v.slice(2);
+  this.value = v;
+});
+
+// CVV mask
+const cardCvvInput = document.getElementById('card-cvv');
+cardCvvInput.addEventListener('input', function() {
+  this.value = this.value.replace(/\D/g, '').slice(0, 4);
+});
+
+// Card brand detection
+function detectBrand(num) {
+  const brands = { visa: false, master: false, elo: false, amex: false };
+  if (/^4/.test(num)) brands.visa = true;
+  else if (/^5[1-5]/.test(num) || /^2[2-7]/.test(num)) brands.master = true;
+  else if (/^3[47]/.test(num)) brands.amex = true;
+  else if (/^(636|504|509|650|651|652|653|654|655)/.test(num)) brands.elo = true;
+
+  document.getElementById('brand-visa').classList.toggle('active', brands.visa);
+  document.getElementById('brand-master').classList.toggle('active', brands.master);
+  document.getElementById('brand-elo').classList.toggle('active', brands.elo);
+  document.getElementById('brand-amex').classList.toggle('active', brands.amex);
+}
+
+// Block non-numeric on phone/cpf/card
+['telefone','cpf','card-number','card-expiry','card-cvv'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('keydown', function(e) {
+    var allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab','Home','End'];
+    if (!allowed.includes(e.key) && !/^\d$/.test(e.key) && !e.ctrlKey && !e.metaKey) e.preventDefault();
+  });
+});
+
+
+/* ══════════════════════════════════════
+   CEP AUTOCOMPLETE (ViaCEP)
+   ══════════════════════════════════════ */
+const cepHint = document.getElementById('cep-hint');
+
+async function fetchCep(cep) {
+  cepHint.textContent = 'Buscando endereco...';
+  cepHint.style.color = '';
+  const fields = ['rua','bairro','cidade','estado'];
+  fields.forEach(function(id) {
+    var el = document.getElementById(id);
+    el.classList.add('loading');
+    el.value = '';
+  });
+
+  try {
+    const res = await fetch('https://viacep.com.br/ws/' + cep + '/json/');
+    const data = await res.json();
+
+    if (data.erro) {
+      cepHint.textContent = 'CEP nao encontrado. Preencha manualmente.';
+      fields.forEach(function(id) { document.getElementById(id).classList.remove('loading'); });
+      return;
+    }
+
+    document.getElementById('rua').value = data.logradouro || '';
+    document.getElementById('bairro').value = data.bairro || '';
+    document.getElementById('cidade').value = data.localidade || '';
+    document.getElementById('estado').value = data.uf || '';
+    fields.forEach(function(id) {
+      var el = document.getElementById(id);
+      el.classList.remove('loading');
+      validateField(id);
+    });
+    cepHint.textContent = 'Endereco preenchido! Confira e adicione o numero.';
+    cepHint.style.color = '#27ae60';
+    document.getElementById('numero').focus();
+  } catch(e) {
+    cepHint.textContent = 'Erro ao buscar CEP. Preencha manualmente.';
+    fields.forEach(function(id) { document.getElementById(id).classList.remove('loading'); });
+  }
+}
+
+
+/* ══════════════════════════════════════
+   EMAIL AUTOCOMPLETE
+   ══════════════════════════════════════ */
+const emailInput = document.getElementById('email');
+const emailSuggestions = document.getElementById('email-suggestions');
+const domains = ['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com.br', 'icloud.com'];
+
+emailInput.addEventListener('input', function() {
+  const val = this.value;
+  if (val.includes('@')) {
+    const parts = val.split('@');
+    const prefix = parts[0];
+    const partial = parts[1].toLowerCase();
+    const matched = domains.filter(function(d) { return d.startsWith(partial) && d !== partial; });
+    if (matched.length > 0) {
+      emailSuggestions.innerHTML = matched.map(function(d) {
+        return '<div class="email-suggestion-item" data-email="' + prefix + '@' + d + '"><strong>' + prefix + '</strong>@' + d + '</div>';
+      }).join('');
+      emailSuggestions.classList.add('active');
+    } else {
+      emailSuggestions.classList.remove('active');
+    }
+  } else {
+    emailSuggestions.classList.remove('active');
+  }
+});
+
+emailSuggestions.addEventListener('click', function(e) {
+  const item = e.target.closest('.email-suggestion-item');
+  if (item) {
+    emailInput.value = item.dataset.email;
+    emailSuggestions.classList.remove('active');
+    document.getElementById('nome').focus();
+    validateField('email');
+  }
+});
+
+document.addEventListener('click', function(e) {
+  if (!emailInput.contains(e.target) && !emailSuggestions.contains(e.target)) {
+    emailSuggestions.classList.remove('active');
+  }
+});
+
+
+/* ══════════════════════════════════════
+   FIELD VALIDATION
+   ══════════════════════════════════════ */
+const validators = {
+  'email': function(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); },
+  'nome': function(v) { return v.length >= 2; },
+  'sobrenome': function(v) { return v.length >= 2; },
+  'telefone': function(v) { return v.replace(/\D/g,'').length === 11; },
+  'cpf': function(v) { return v.replace(/\D/g,'').length === 11; },
+  'cep': function(v) { return /^\d{5}-\d{3}$/.test(v); },
+  'rua': function(v) { return v.length >= 3; },
+  'numero': function(v) { return v.length >= 1; },
+  'bairro': function(v) { return v.length >= 2; },
+  'cidade': function(v) { return v.length >= 2; },
+  'estado': function(v) { return v.length === 2; },
+  'card-number': function(v) { return v.replace(/\D/g,'').length >= 13; },
+  'card-name': function(v) { return v.length >= 3; },
+  'card-expiry': function(v) { return /^\d{2}\/\d{2}$/.test(v); },
+  'card-cvv': function(v) { return v.length >= 3; },
+};
+
+function validateField(id) {
+  var el = document.getElementById(id);
+  if (!el || !validators[id]) return false;
+  var valid = validators[id](el.value.trim());
+  el.classList.toggle('valid', valid);
+  el.classList.remove('invalid');
+  return valid;
+}
+
+Object.keys(validators).forEach(function(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('blur', function() { validateField(id); });
+  el.addEventListener('input', function() { validateField(id); });
+});
+
+
+/* ══════════════════════════════════════
+   FORM SUBMISSION
+   ══════════════════════════════════════ */
+document.getElementById('btn-finalizar').addEventListener('click', async function() {
+  const btn = this;
+  const errorBox = document.getElementById('checkout-error');
+  const errorText = document.getElementById('error-text');
+  errorBox.style.display = 'none';
+
+  // Validate required fields
+  const requiredFields = ['email','nome','sobrenome','telefone','cpf','cep','rua','numero','bairro','cidade','estado'];
+  const method = document.querySelector('input[name="payment"]:checked').value;
+
+  if (method === 'credit_card') {
+    requiredFields.push('card-number','card-name','card-expiry','card-cvv');
+  }
+
+  let allValid = true;
+  requiredFields.forEach(function(id) {
+    if (!validateField(id)) {
+      allValid = false;
+      var el = document.getElementById(id);
+      if (el) el.classList.add('invalid');
+    }
+  });
+
+  if (!allValid) {
+    errorText.textContent = 'Preencha todos os campos obrigatorios corretamente.';
+    errorBox.style.display = 'block';
+    // Scroll to first invalid
+    var firstInvalid = document.querySelector('.invalid');
+    if (firstInvalid) firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  if (cartItems.length === 0) {
+    errorText.textContent = 'Seu carrinho esta vazio.';
+    errorBox.style.display = 'block';
+    return;
+  }
+
+  // Parse card expiry
+  let cardMonth = 0, cardYear = 0;
+  if (method === 'credit_card') {
+    const parts = document.getElementById('card-expiry').value.split('/');
+    cardMonth = parseInt(parts[0], 10);
+    cardYear = 2000 + parseInt(parts[1], 10);
+  }
+
+  // Build payload
+  const payload = {
+    nome: document.getElementById('nome').value.trim(),
+    sobrenome: document.getElementById('sobrenome').value.trim(),
+    email: document.getElementById('email').value.trim(),
+    telefone: document.getElementById('telefone').value.trim(),
+    cpf: document.getElementById('cpf').value.trim(),
+    cep: document.getElementById('cep').value.trim(),
+    rua: document.getElementById('rua').value.trim(),
+    numero: document.getElementById('numero').value.trim(),
+    complemento: document.getElementById('complemento').value.trim(),
+    bairro: document.getElementById('bairro').value.trim(),
+    cidade: document.getElementById('cidade').value.trim(),
+    estado: document.getElementById('estado').value.trim(),
+    payment_method: method,
+    products: cartItems,
+    total_cents: totalCents,
+    installments: method === 'credit_card' ? parseInt(document.getElementById('installments').value, 10) : 1,
+  };
+
+  if (method === 'credit_card') {
+    payload.card_number = document.getElementById('card-number').value.trim();
+    payload.card_name = document.getElementById('card-name').value.trim();
+    payload.card_month = cardMonth;
+    payload.card_year = cardYear;
+    payload.card_cvv = document.getElementById('card-cvv').value.trim();
+  }
+
+  // Show loading
+  btn.disabled = true;
+  document.getElementById('loading-overlay').classList.add('show');
+
+  try {
+    const res = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+
+    document.getElementById('loading-overlay').classList.remove('show');
+    btn.disabled = false;
+
+    if (data.success) {
+      if (data.method === 'pix') {
+        showPixResult(data);
+      } else {
+        showCardSuccess(data);
+      }
+      // Clear cart
+      localStorage.removeItem('cart_items');
+      localStorage.removeItem('order_total_cents');
+    } else {
+      errorText.textContent = data.error || 'Erro ao processar pagamento. Tente novamente.';
+      errorBox.style.display = 'block';
+      errorBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  } catch(err) {
+    document.getElementById('loading-overlay').classList.remove('show');
+    btn.disabled = false;
+    errorText.textContent = 'Erro de conexao. Verifique sua internet e tente novamente.';
+    errorBox.style.display = 'block';
+  }
+});
+
+
+/* ══════════════════════════════════════
+   PIX RESULT
+   ══════════════════════════════════════ */
+let pixTimerInterval = null;
+
+function showPixResult(data) {
+  document.getElementById('checkout-form-container').style.display = 'none';
+
+  // Populate order items in PIX result
+  renderCartItems('pix-order-items');
+  document.getElementById('pix-order-total').textContent = fmtPrice(totalCents);
+
+  // QR Code - AppMax retorna base64 da imagem PNG
+  const qrImg = document.getElementById('pix-qr-img');
+  if (data.pix_qrcode) {
+    // Se comecar com iVBOR ou similar, eh base64
+    if (data.pix_qrcode.startsWith('iVBOR') || data.pix_qrcode.startsWith('/9j/')) {
+      qrImg.src = 'data:image/png;base64,' + data.pix_qrcode;
+    } else if (data.pix_qrcode.startsWith('data:')) {
+      qrImg.src = data.pix_qrcode;
+    } else {
+      qrImg.src = data.pix_qrcode;
+    }
+  } else if (data.pix_emv) {
+    qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(data.pix_emv);
+  }
+
+  // Copy-paste code
+  document.getElementById('pix-code-box').textContent = data.pix_emv || '';
+
+  // Timer (30 min default)
+  let seconds = 30 * 60;
+  if (data.pix_expiration) {
+    const exp = new Date(data.pix_expiration);
+    const now = new Date();
+    const diff = Math.floor((exp - now) / 1000);
+    if (diff > 0) seconds = diff;
+  }
+  startPixTimer(seconds);
+
+  document.getElementById('pix-result-container').style.display = 'grid';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function startPixTimer(totalSeconds) {
+  const timerEl = document.getElementById('pix-timer-text');
+  let remaining = totalSeconds;
+
+  function tick() {
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    timerEl.textContent = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    if (remaining <= 0) {
+      clearInterval(pixTimerInterval);
+      timerEl.textContent = 'Expirado';
+      timerEl.style.color = '#e74c3c';
+    }
+    remaining--;
+  }
+  tick();
+  pixTimerInterval = setInterval(tick, 1000);
+}
+
+function copyPixCode() {
+  const code = document.getElementById('pix-code-box').textContent;
+  const btn = document.getElementById('pix-copy-btn');
+  navigator.clipboard.writeText(code).then(function() {
+    btn.textContent = 'Codigo copiado!';
+    btn.classList.add('copied');
+    setTimeout(function() {
+      btn.textContent = 'Copiar codigo PIX';
+      btn.classList.remove('copied');
+    }, 3000);
+  }).catch(function() {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = code;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = 'Codigo copiado!';
+    btn.classList.add('copied');
+    setTimeout(function() {
+      btn.textContent = 'Copiar codigo PIX';
+      btn.classList.remove('copied');
+    }, 3000);
+  });
+}
+
+
+/* ══════════════════════════════════════
+   CARD SUCCESS
+   ══════════════════════════════════════ */
+function showCardSuccess(data) {
+  document.getElementById('checkout-form-container').style.display = 'none';
+
+  renderCartItems('card-order-items');
+  document.getElementById('card-order-total').textContent = fmtPrice(totalCents);
+  document.getElementById('card-order-id').textContent = data.order_id || '';
+
+  document.getElementById('card-success-container').style.display = 'grid';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>

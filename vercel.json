@@ -1,0 +1,79 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api_vercel.py",
+      "use": "@vercel/python"
+    },
+    {
+      "src": "*.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "*.css",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "fonts/**",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "media/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "api_vercel.py"
+    },
+    {
+      "src": "/fonts/(.*)",
+      "dest": "/fonts/$1"
+    },
+    {
+      "src": "/media/(.*)",
+      "dest": "/media/$1"
+    },
+    {
+      "src": "/(.*\\.css)",
+      "dest": "/$1"
+    },
+    {
+      "src": "/(.*\\.html)",
+      "dest": "/$1"
+    },
+    {
+      "src": "/loja",
+      "dest": "/loja.html"
+    },
+    {
+      "src": "/checkout",
+      "dest": "/checkout.html"
+    },
+    {
+      "src": "/quem-somos",
+      "dest": "/quem-somos.html"
+    },
+    {
+      "src": "/contato",
+      "dest": "/contato.html"
+    },
+    {
+      "src": "/a-missa-em-partes",
+      "dest": "/a-missa-em-partes.html"
+    },
+    {
+      "src": "/calendario-liturgico",
+      "dest": "/calendario-liturgico.html"
+    },
+    {
+      "src": "/cart",
+      "dest": "/cart-page.html"
+    },
+    {
+      "src": "/",
+      "dest": "/loja.html"
+    }
+  ]
+}
